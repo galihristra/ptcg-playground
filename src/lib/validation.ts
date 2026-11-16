@@ -1,5 +1,5 @@
 import { checkStandardLegality, normalizeName, type LegalityContext } from './legality'
-import { isBasicEnergy, type Card } from './types'
+import { isBasicEnergy, isBasicPokemon, type Card } from './types'
 
 export const DECK_SIZE = 60
 export const MAX_COPIES = 4
@@ -99,7 +99,7 @@ export function validateDeck(entries: DeckEntry[], ctx: ValidationContext): Vali
     }
   }
 
-  if (total > 0 && !live.some((e) => e.card.category === 'Pokemon' && e.card.stage === 'Basic')) {
+  if (total > 0 && !live.some((e) => isBasicPokemon(e.card))) {
     errors.push({ code: 'no-basic-pokemon', message: 'Deck needs at least 1 Basic Pokémon.' })
   }
 

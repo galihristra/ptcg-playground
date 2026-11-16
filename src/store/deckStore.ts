@@ -24,6 +24,8 @@ interface DeckState {
   deleteDeck: () => void
   selectDeck: (id: string) => void
   replaceEntries: (entries: DeckEntry[], name?: string) => void
+  /** Swaps in fresher snapshots of cards already saved, in every deck. Counts and deck order are untouched. */
+  refreshCards: (cards: Card[]) => void
 }
 
 const newId = () =>
@@ -94,6 +96,22 @@ export const useDeckStore = create<DeckState>()(
             const deck = s.decks[s.activeId]
             const entries = Object.fromEntries(list.filter((e) => e.count > 0).map((e) => [e.card.id, e]))
             return { decks: { ...s.decks, [deck.id]: { ...deck, name: name ?? deck.name, entries, updatedAt: Date.now() } } }
+          }),
+        refreshCards: (cards) =>
+          set((s) => {
+            const fresh = new Map(cards.map((c) => [c.id, c]))
+            let changed = false
+            const decks = Object.fromEntries(
+              Object.values(s.decks).map((deck) => {
+                if (!Object.keys(deck.entries).some((id) => fresh.has(id))) return [deck.id, deck]
+                changed = true
+                const entries = Object.fromEntries(
+                  Object.entries(deck.entries).map(([id, e]) => [id, fresh.has(id) ? { ...e, card: fresh.get(id)! } : e]),
+                )
+                return [deck.id, { ...deck, entries }]
+              }),
+            )
+            return changed ? { decks } : s
           }),
       }
     },
