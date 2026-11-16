@@ -45,6 +45,7 @@ export function toCard(raw: Raw): Card {
     hp: typeof raw.hp === 'number' ? raw.hp : undefined,
     types: raw.types,
     stage: raw.stage,
+    evolveFrom: raw.evolveFrom || undefined,
     suffix: raw.suffix,
     regulationMark: raw.regulationMark,
     energyType: raw.energyType,
