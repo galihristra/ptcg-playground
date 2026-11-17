@@ -328,9 +328,9 @@ export default function PlaytestScreen() {
               {player.bench.length === 0 ? (
                 <p className="py-6 text-center text-xs text-slate-500">No Benched Pokémon</p>
               ) : (
-                <div className="mx-auto flex w-fit max-w-full gap-2 overflow-x-auto p-0.5 pb-1">
+                <div className="grid grid-cols-3 gap-2 p-0.5 sm:mx-auto sm:flex sm:w-fit sm:max-w-full sm:overflow-x-auto sm:pb-1">
                   {player.bench.map((slot) => (
-                    <PokemonView key={slot.id} slot={slot} width="w-20 sm:w-24" targetable={isTargetable(slot)} {...pokemonProps} />
+                    <PokemonView key={slot.id} slot={slot} width="w-full sm:w-24" targetable={isTargetable(slot)} {...pokemonProps} />
                   ))}
                 </div>
               )}
