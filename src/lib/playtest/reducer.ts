@@ -1,6 +1,7 @@
 // The playtest engine: (state, action) => state. Pure and deterministic; it never throws.
 // Invalid actions return the same state reference (see reducer/zones.ts for the logging rule).
 
+import { addDamage, attach, evolve, knockOut, playToBench, playTrainer, promote, retreat, setCondition, toggleBurn, togglePoison } from './reducer/board'
 import { coinFlip, draw, endTurn, move, mulligan, placeOpening, putOnBottom, reset, shuffleDeck, startGame, takePrize } from './reducer/zones'
 import type { Action, GameState } from './types'
 
@@ -28,19 +29,28 @@ export function reduce(state: GameState, action: Action): GameState {
       return endTurn(state)
     case 'RESET':
       return reset(state, action)
-    // Board actions arrive with the board model (milestone M3). Until then they are no-ops.
     case 'PLAY_TO_BENCH':
+      return playToBench(state, action)
     case 'EVOLVE':
+      return evolve(state, action)
     case 'ATTACH':
+      return attach(state, action)
     case 'PLAY_TRAINER':
+      return playTrainer(state, action)
     case 'RETREAT':
+      return retreat(state, action)
     case 'PROMOTE':
+      return promote(state, action)
     case 'KNOCK_OUT':
+      return knockOut(state, action)
     case 'ADD_DAMAGE':
+      return addDamage(state, action)
     case 'SET_CONDITION':
+      return setCondition(state, action)
     case 'TOGGLE_POISON':
+      return togglePoison(state, action)
     case 'TOGGLE_BURN':
-      return state
+      return toggleBurn(state, action)
     default:
       action satisfies never
       return state
