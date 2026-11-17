@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
+import { getCard } from '../../lib/cards'
 import { checkStandardLegality } from '../../lib/legality'
+import { refreshCards } from '../../lib/playtest/hydrate'
 import type { Category } from '../../lib/types'
 import { canAddCopy, DECK_SIZE, isAceSpec, totalCards, validateDeck, type DeckEntry } from '../../lib/validation'
 import { useActiveDeck, useDeckStore } from '../../store/deckStore'
+import { usePlaytestStore } from '../../store/playtestStore'
 import { useUiStore } from '../../store/uiStore'
 import { ImportExportDialog } from '../import-export/ImportExportDialog'
 import { useValidationContext } from '../useStandardData'
@@ -25,11 +28,25 @@ export function DeckPanel() {
   const { addById, removeById } = useDeckActions()
   const openCard = useUiStore((s) => s.openCard)
   const [dialog, setDialog] = useState<'import' | 'export' | null>(null)
+  const [starting, setStarting] = useState(false)
 
   const result = useMemo(() => validateDeck(entries, ctx), [entries, ctx])
   const flagged = useMemo(() => new Set(result.errors.flatMap((e) => e.cardIds ?? [])), [result])
   const deckList = Object.values(decks).sort((a, b) => a.name.localeCompare(b.name))
   const empty = entries.length === 0
+
+  /** Fills in card data older saved decks are missing (never throws), then opens the playtest screen. */
+  const startPlaytest = async () => {
+    setStarting(true)
+    try {
+      const fresh = await refreshCards(entries, getCard)
+      if (fresh.refreshed.length > 0) useDeckStore.getState().refreshCards(fresh.refreshed)
+      usePlaytestStore.getState().start(fresh.entries)
+      useUiStore.getState().setView('playtest')
+    } finally {
+      setStarting(false)
+    }
+  }
 
   const confirmThen = (message: string, action: () => void) => {
     if (empty || window.confirm(message)) action()
@@ -69,6 +86,14 @@ export function DeckPanel() {
           onChange={(e) => store.renameDeck(e.target.value)}
         />
         <div className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            className="rounded-md bg-amber-400 px-2.5 py-1 text-xs font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-40"
+            disabled={empty || starting}
+            onClick={() => void startPlaytest()}
+          >
+            {starting ? 'Loading…' : 'Playtest'}
+          </button>
           <button type="button" className={smallBtn} onClick={() => setDialog('import')}>
             Import
           </button>

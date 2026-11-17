@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { CardBrowser } from './features/browser/CardBrowser'
 import { CardDrawer } from './features/browser/CardDrawer'
 import { DeckPanel } from './features/deck/DeckPanel'
@@ -7,11 +7,23 @@ import { DECK_SIZE, totalCards } from './lib/validation'
 import { useActiveDeck } from './store/deckStore'
 import { useUiStore } from './store/uiStore'
 
+// Loaded on demand so the deck builder bundle doesn't grow.
+const PlaytestScreen = lazy(() => import('./features/playtest/PlaytestScreen'))
+
 export default function App() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const deck = useActiveDeck()
   const total = totalCards(useDeckEntries())
   const toast = useUiStore((s) => s.toast)
+  const view = useUiStore((s) => s.view)
+
+  if (view === 'playtest') {
+    return (
+      <Suspense fallback={<p className="p-6 text-sm text-slate-400">Loading playtest…</p>}>
+        <PlaytestScreen />
+      </Suspense>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col">
