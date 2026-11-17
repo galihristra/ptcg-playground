@@ -315,26 +315,26 @@ export default function PlaytestScreen() {
               </Zone>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)]">
-              <Zone title="Active Spot">
+            <Zone title="Active Spot">
+              <div className="flex justify-center p-0.5">
                 {player.active ? (
                   <PokemonView slot={player.active} width="w-28 sm:w-36" targetable={isTargetable(player.active)} {...pokemonProps} />
                 ) : (
                   <p className="flex aspect-[5/7] w-28 items-center justify-center rounded-lg border border-dashed border-slate-700 p-2 text-center text-xs text-slate-500 sm:w-36">Empty</p>
                 )}
-              </Zone>
-              <Zone title={`Bench · ${player.bench.length}`}>
-                {player.bench.length === 0 ? (
-                  <p className="py-6 text-center text-xs text-slate-500">No Benched Pokémon</p>
-                ) : (
-                  <div className="flex gap-2 overflow-x-auto p-0.5 pb-1">
-                    {player.bench.map((slot) => (
-                      <PokemonView key={slot.id} slot={slot} width="w-20 sm:w-24" targetable={isTargetable(slot)} {...pokemonProps} />
-                    ))}
-                  </div>
-                )}
-              </Zone>
-            </div>
+              </div>
+            </Zone>
+            <Zone title={`Bench · ${player.bench.length}`}>
+              {player.bench.length === 0 ? (
+                <p className="py-6 text-center text-xs text-slate-500">No Benched Pokémon</p>
+              ) : (
+                <div className="mx-auto flex w-fit max-w-full gap-2 overflow-x-auto p-0.5 pb-1">
+                  {player.bench.map((slot) => (
+                    <PokemonView key={slot.id} slot={slot} width="w-20 sm:w-24" targetable={isTargetable(slot)} {...pokemonProps} />
+                  ))}
+                </div>
+              )}
+            </Zone>
 
             <Zone title={`Hand · ${player.hand.length}`}>
               {player.hand.length === 0 ? (
