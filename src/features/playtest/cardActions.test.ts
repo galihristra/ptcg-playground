@@ -4,7 +4,7 @@ import { reduce } from '../../lib/playtest/reducer'
 import { handGame } from '../../lib/playtest/testGame'
 import type { Action, GameState } from '../../lib/playtest/types'
 import { engineDeck } from '../../lib/testUtils'
-import { actionsFor } from './cardActions'
+import { actionsFor, defaultAction } from './cardActions'
 
 const DECK = engineDeck()
 const game = (...names: string[]) => handGame(DECK, ...names)
@@ -63,5 +63,52 @@ describe('actionsFor', () => {
         if ('run' in action) expect(reduce(board, action.run), `${action.label} on ${uid}`).not.toBe(board)
       }
     }
+  })
+})
+
+describe('defaultAction', () => {
+  it('is null for cards outside the hand and unknown cards', () => {
+    const { state, hand } = game('Seedling')
+    expect(defaultAction(state, 'nope#1')).toBeNull()
+    const placed = reduce(state, { type: 'MOVE', uid: hand[0], to: 'active' })
+    expect(defaultAction(placed, hand[0])).toBeNull()
+    expect(defaultAction(state, state.player.deck[0].uid)).toBeNull()
+  })
+
+  it('puts a Basic in the Active Spot when it is empty, otherwise on the Bench', () => {
+    const { state, hand } = game('Seedling', 'Pebble')
+    expect(defaultAction(state, hand[0])).toMatchObject({ run: { type: 'MOVE', uid: hand[0], to: 'active' } })
+    const placed = reduce(state, { type: 'MOVE', uid: hand[0], to: 'active' })
+    expect(defaultAction(placed, hand[1])).toMatchObject({ run: { type: 'PLAY_TO_BENCH', uid: hand[1] } })
+  })
+
+  it('plays Trainers', () => {
+    const { state, hand } = game('Research')
+    expect(defaultAction(state, hand[0])).toMatchObject({ run: { type: 'PLAY_TRAINER', uid: hand[0] } })
+  })
+
+  it('has nothing to do for Energy, Tools and Evolutions with no Pokémon in play', () => {
+    const { state, hand } = game('Grass Energy', 'Cape', 'Sprout')
+    for (const uid of hand) expect(defaultAction(state, uid)).toBeNull()
+  })
+
+  it('attaches straight to the only Pokémon in play, and asks when there are several', () => {
+    const { state, hand } = game('Seedling', 'Pebble', 'Grass Energy')
+    const one = reduce(state, { type: 'MOVE', uid: hand[0], to: 'active' })
+    expect(defaultAction(one, hand[2])).toMatchObject({ run: { type: 'ATTACH', uid: hand[2], target: one.player.active!.id } })
+    const two = reduce(one, { type: 'PLAY_TO_BENCH', uid: hand[1] })
+    expect(defaultAction(two, hand[2])).toMatchObject({ pick: 'ATTACH' })
+  })
+
+  it('evolves the one Pokémon it evolves from, and asks when several or none match', () => {
+    const { state, hand } = game('Seedling', 'Seedling', 'Pebble', 'Sprout')
+    const a = run(state, { type: 'MOVE', uid: hand[0], to: 'active' }, { type: 'PLAY_TO_BENCH', uid: hand[2] })
+    expect(defaultAction(a, hand[3])).toMatchObject({ run: { type: 'EVOLVE', uid: hand[3], target: a.player.active!.id } })
+    const b = reduce(a, { type: 'PLAY_TO_BENCH', uid: hand[1] })
+    expect(defaultAction(b, hand[3])).toMatchObject({ pick: 'EVOLVE' })
+    const c = run(state, { type: 'MOVE', uid: hand[2], to: 'active' }, { type: 'PLAY_TO_BENCH', uid: hand[0] }, { type: 'PLAY_TO_BENCH', uid: hand[1] })
+    const none = run(state, { type: 'MOVE', uid: hand[2], to: 'active' })
+    expect(defaultAction(c, hand[3])).toMatchObject({ pick: 'EVOLVE' })
+    expect(defaultAction(none, hand[3])).toMatchObject({ pick: 'EVOLVE' })
   })
 })

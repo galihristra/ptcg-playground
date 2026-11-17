@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import { findInPlay, locate, topCard } from '../../lib/playtest/selectors'
 import type { Action, CardInstance, PokemonInPlay } from '../../lib/playtest/types'
 import { computeWarnings } from '../../lib/playtest/warnings'
@@ -8,10 +8,13 @@ import { useActiveDeck } from '../../store/deckStore'
 import { usePlaytestGame, usePlaytestStore } from '../../store/playtestStore'
 import { useUiStore } from '../../store/uiStore'
 import { useValidationContext } from '../useStandardData'
-import { actionsFor, type CardAction } from './cardActions'
+import { actionsFor, defaultAction, type CardAction } from './cardActions'
 
 type Pile = 'deck' | 'discard' | 'lostZone'
 type Pending = { kind: 'EVOLVE' | 'ATTACH'; uid: string }
+/** The right-click menu: which card it is for and where the pointer was. */
+type Menu = { uid: string; x: number; y: number }
+type OnMenu = (uid: string, event: MouseEvent) => void
 
 const PILE_TITLE: Record<Pile, string> = { deck: 'Deck (top card first)', discard: 'Discard pile', lostZone: 'Lost Zone' }
 
@@ -60,15 +63,20 @@ interface CardButtonProps {
   selected: boolean
   width: string
   onSelect: (uid: string) => void
+  onMenu: OnMenu
+  /** Double-click: play the card. Only cards in the hand have it. */
+  onPlay?: (uid: string) => void
 }
 
-function CardButton({ instance, selected, width, onSelect }: CardButtonProps) {
+function CardButton({ instance, selected, width, onSelect, onMenu, onPlay }: CardButtonProps) {
   return (
     <button
       type="button"
       aria-pressed={selected}
       aria-label={`${instance.card.name}, ${subtitle(instance.card)}`}
       onClick={() => onSelect(instance.uid)}
+      onDoubleClick={onPlay && (() => onPlay(instance.uid))}
+      onContextMenu={(e) => onMenu(instance.uid, e)}
       className={`${width} shrink-0 rounded-lg ring-2 transition ${selected ? 'ring-amber-400' : 'ring-transparent hover:ring-slate-500'}`}
     >
       <CardFace card={instance.card} />
@@ -84,9 +92,10 @@ interface PokemonProps {
   targetable: boolean
   onSelect: (uid: string) => void
   onTarget: (slotId: string) => void
+  onMenu: OnMenu
 }
 
-function PokemonView({ slot, width, selectedUid, targetable, onSelect, onTarget }: PokemonProps) {
+function PokemonView({ slot, width, selectedUid, targetable, onSelect, onTarget, onMenu }: PokemonProps) {
   const top = topCard(slot)
   const hp = top.card.hp
   const conditions = [slot.condition, slot.poisoned ? 'poisoned' : null, slot.burned ? 'burned' : null].filter((c): c is string => c !== null)
@@ -97,6 +106,7 @@ function PokemonView({ slot, width, selectedUid, targetable, onSelect, onTarget 
         aria-pressed={selectedUid === top.uid}
         aria-label={`${top.card.name}${slot.damage ? `, ${slot.damage} damage` : ''}${conditions.length ? `, ${conditions.join(', ')}` : ''}`}
         onClick={() => (targetable ? onTarget(slot.id) : onSelect(top.uid))}
+        onContextMenu={(e) => onMenu(top.uid, e)}
         className={`relative block w-full rounded-lg ring-2 transition ${targetable ? 'ring-emerald-400' : selectedUid === top.uid ? 'ring-amber-400' : 'ring-transparent hover:ring-slate-500'}`}
       >
         <CardFace card={top.card} />
@@ -123,6 +133,7 @@ function PokemonView({ slot, width, selectedUid, targetable, onSelect, onTarget 
                 type="button"
                 aria-pressed={selectedUid === c.uid}
                 onClick={() => onSelect(c.uid)}
+                onContextMenu={(e) => onMenu(c.uid, e)}
                 className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${selectedUid === c.uid ? 'bg-amber-400 text-slate-950' : c.card.category === 'Energy' ? 'bg-emerald-900 text-emerald-100' : 'bg-sky-900 text-sky-100'}`}
               >
                 {c.card.name.replace(/ Energy$/, '')}
@@ -144,6 +155,27 @@ function Zone({ title, children, className = '' }: { title: string; children: Re
   )
 }
 
+/**
+ * The bar of actions for the selected card. It can open on top of the card that was just clicked, so it
+ * lets clicks through for a moment: the second click of a double-click must reach the card, not a button here.
+ */
+function ActionBar({ children }: { children: ReactNode }) {
+  const [live, setLive] = useState(false)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setLive(true), 400)
+    return () => window.clearTimeout(timer)
+  }, [])
+  return (
+    <div
+      role="region"
+      aria-label="Card actions"
+      className={`fixed inset-x-0 bottom-0 z-30 border-t border-slate-700 bg-slate-950/95 px-3 py-2 shadow-2xl backdrop-blur ${live ? '' : 'pointer-events-none'}`}
+    >
+      {children}
+    </div>
+  )
+}
+
 export default function PlaytestScreen() {
   const game = usePlaytestGame()
   const deck = useActiveDeck()
@@ -151,6 +183,14 @@ export default function PlaytestScreen() {
   const [selectedUid, setSelectedUid] = useState<string | null>(null)
   const [pending, setPending] = useState<Pending | null>(null)
   const [openPile, setOpenPile] = useState<Pile | null>(null)
+  const [menu, setMenu] = useState<Menu | null>(null)
+
+  useEffect(() => {
+    if (!menu) return
+    const close = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(null)
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [menu])
 
   // Derived with useMemo, not inside a store selector: a selector returning a new array re-renders forever.
   const warnings = useMemo(() => (game ? computeWarnings(game) : []), [game])
@@ -176,11 +216,29 @@ export default function PlaytestScreen() {
   const dispatch = (action: Action) => {
     usePlaytestStore.getState().dispatch(action)
     setPending(null)
+    setMenu(null)
     if (!KEEPS_SELECTION.includes(action.type)) setSelectedUid(null)
   }
   const select = (uid: string) => {
     setPending(null)
     setSelectedUid((current) => (current === uid ? null : uid))
+  }
+  /** Runs an action from the action bar, the right-click menu or a double-click. */
+  const perform = (action: CardAction, uid: string) => {
+    if ('run' in action) return dispatch(action.run)
+    setMenu(null)
+    setSelectedUid(uid)
+    setPending({ kind: action.pick, uid })
+  }
+  const play = (uid: string) => {
+    const action = defaultAction(game, uid)
+    if (action) perform(action, uid)
+  }
+  const openMenu: OnMenu = (uid, event) => {
+    event.preventDefault()
+    setPending(null)
+    setSelectedUid(uid)
+    setMenu({ uid, x: event.clientX, y: event.clientY })
   }
   const target = (slotId: string) => {
     if (pending) dispatch({ type: pending.kind, uid: pending.uid, target: slotId })
@@ -196,7 +254,9 @@ export default function PlaytestScreen() {
   const actions = selected ? actionsFor(game, selected.card.uid) : []
   // While picking a target, every Pokémon is a target except the one the card is already part of.
   const isTargetable = (slot: PokemonInPlay) => pending !== null && findInPlay(game, pending.uid)?.id !== slot.id
-  const pokemonProps = { selectedUid, onSelect: select, onTarget: target }
+  const pokemonProps = { selectedUid, onSelect: select, onTarget: target, onMenu: openMenu }
+  const menuActions = menu ? actionsFor(game, menu.uid) : []
+  const menuCard = menu ? locate(game, menu.uid) : null
   const lastDiscard = player.discard[player.discard.length - 1]
 
   return (
@@ -290,6 +350,7 @@ export default function PlaytestScreen() {
                     type="button"
                     aria-pressed={selectedUid === player.stadium.uid}
                     onClick={() => select(player.stadium!.uid)}
+                onContextMenu={(e) => openMenu(player.stadium!.uid, e)}
                     className={`w-full truncate rounded-md px-2 py-1.5 text-left text-xs font-medium ${selectedUid === player.stadium.uid ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 hover:bg-slate-700'}`}
                   >
                     {player.stadium.card.name}
@@ -308,7 +369,7 @@ export default function PlaytestScreen() {
                 ) : (
                   <div className="flex max-h-72 flex-wrap gap-2 overflow-y-auto p-0.5">
                     {player[openPile].map((c) => (
-                      <CardButton key={c.uid} instance={c} width="w-16 sm:w-20" selected={selectedUid === c.uid} onSelect={select} />
+                      <CardButton key={c.uid} instance={c} width="w-16 sm:w-20" selected={selectedUid === c.uid} onSelect={select} onMenu={openMenu} />
                     ))}
                   </div>
                 )}
@@ -342,7 +403,7 @@ export default function PlaytestScreen() {
               ) : (
                 <div className="flex flex-wrap gap-2 p-0.5">
                   {player.hand.map((c) => (
-                    <CardButton key={c.uid} instance={c} width="w-20 sm:w-24" selected={selectedUid === c.uid} onSelect={select} />
+                    <CardButton key={c.uid} instance={c} width="w-20 sm:w-24" selected={selectedUid === c.uid} onSelect={select} onMenu={openMenu} onPlay={play} />
                   ))}
                 </div>
               )}
@@ -382,7 +443,7 @@ export default function PlaytestScreen() {
       </div>
 
       {selected && (
-        <div role="region" aria-label="Card actions" className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-700 bg-slate-950/95 px-3 py-2 shadow-2xl backdrop-blur">
+        <ActionBar key={selected.card.uid}>
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-1.5">
             <p className="mr-2 min-w-0 text-sm">
               <span className="font-semibold">{selected.card.card.name}</span>
@@ -402,7 +463,7 @@ export default function PlaytestScreen() {
                     key={action.label}
                     type="button"
                     className={toneClass(action.tone)}
-                    onClick={() => ('run' in action ? dispatch(action.run) : setPending({ kind: action.pick, uid: selected.card.uid }))}
+                    onClick={() => perform(action, selected.card.uid)}
                   >
                     {action.label}
                   </button>
@@ -413,7 +474,43 @@ export default function PlaytestScreen() {
               </>
             )}
           </div>
-        </div>
+        </ActionBar>
+      )}
+
+      {menu && menuCard && menuActions.length > 0 && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setMenu(null)
+            }}
+          />
+          <div
+            role="menu"
+            aria-label={`Actions for ${menuCard.card.card.name}`}
+            className="fixed z-50 max-h-[80vh] w-52 overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 py-1 shadow-2xl"
+            style={{
+              left: Math.max(8, Math.min(menu.x, window.innerWidth - 216)),
+              top: Math.max(8, Math.min(menu.y, window.innerHeight - Math.min(menuActions.length * 30 + 44, window.innerHeight * 0.8) - 8)),
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <p className="truncate border-b border-slate-800 px-3 pb-1.5 pt-1 text-xs font-semibold text-slate-300">{menuCard.card.card.name}</p>
+            {menuActions.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                role="menuitem"
+                className={`block w-full px-3 py-1.5 text-left text-xs hover:bg-slate-800 ${action.tone === 'primary' ? 'font-semibold text-amber-300' : action.tone === 'danger' ? 'text-red-300' : 'text-slate-100'}`}
+                onClick={() => perform(action, menu.uid)}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   )

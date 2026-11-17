@@ -1,6 +1,6 @@
 // What the player can do with the selected card, as plain data. Pure, so it can be tested without React.
 
-import { locate, topCard, findInPlay } from '../../lib/playtest/selectors'
+import { allPokemonInPlay, locate, topCard, findInPlay } from '../../lib/playtest/selectors'
 import type { Action, GameState, SpecialCondition } from '../../lib/playtest/types'
 import { isBasicPokemon } from '../../lib/types'
 
@@ -75,4 +75,22 @@ export function actionsFor(game: GameState, uid: string): CardAction[] {
   move('Top of deck', 'deck', 'top')
   move('Bottom of deck', 'deck', 'bottom')
   return out
+}
+
+/**
+ * What double-clicking a card in the hand does: its main action. Evolving or attaching goes straight
+ * to the Pokémon when only one fits (the one it evolves from, or the only Pokémon in play); otherwise
+ * the screen asks for a target. Null when the card is not in the hand or cannot be played right now.
+ */
+export function defaultAction(game: GameState, uid: string): CardAction | null {
+  const loc = locate(game, uid)
+  if (!loc || loc.where !== 'zone' || loc.zone !== 'hand') return null
+  const action = actionsFor(game, uid).find((a) => a.tone === 'primary')
+  if (!action) return null
+  if ('run' in action) return action
+  const inPlay = allPokemonInPlay(game)
+  const { evolveFrom } = loc.card.card
+  const targets = action.pick === 'EVOLVE' && evolveFrom ? inPlay.filter((slot) => topCard(slot).card.name === evolveFrom) : inPlay
+  if (targets.length !== 1) return action
+  return { label: action.label, tone: action.tone, run: { type: action.pick, uid, target: targets[0].id } }
 }
