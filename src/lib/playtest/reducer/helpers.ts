@@ -90,6 +90,7 @@ export function newSlot(state: GameState, card: CardInstance): { state: GameStat
     condition: null,
     enteredPlayOnTurn: state.turn,
     evolvedOnTurn: null,
+    evolutionsOnTurn: 0,
   }
   return { state: { ...state, nextSlot: state.nextSlot + 1 }, slot }
 }

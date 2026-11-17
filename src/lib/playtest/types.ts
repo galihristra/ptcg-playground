@@ -32,6 +32,8 @@ export type PokemonInPlay = {
   enteredPlayOnTurn: number
   /** Turn of the most recent evolution, or null if it has not evolved since entering play. */
   evolvedOnTurn: number | null
+  /** How many times it evolved during `evolvedOnTurn` (0 if it never evolved). */
+  evolutionsOnTurn: number
 }
 
 export type PlayerState = {
@@ -52,6 +54,8 @@ export type TurnCounts = {
   supportersPlayed: number
   retreats: number
   stadiumsPlayed: number
+  /** Stadiums played onto a Stadium with the same name, which the rules do not allow. */
+  sameNameStadiums: number
 }
 
 export type LogEntry = {
@@ -123,6 +127,7 @@ export type WarningCode =
   | 'multiple-supporters'
   | 'multiple-energy-attachments'
   | 'multiple-retreats'
+  | 'multiple-stadiums'
   | 'supporter-first-turn'
   | 'evolve-mismatch'
   | 'evolve-same-turn'

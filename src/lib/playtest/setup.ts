@@ -7,7 +7,7 @@ import type { CardInstance, GameState, PlayerState, TurnCounts } from './types'
 export const OPENING_HAND_SIZE = 7
 export const PRIZE_COUNT = 6
 
-export const emptyTurnCounts = (): TurnCounts => ({ energyAttached: 0, supportersPlayed: 0, retreats: 0, stadiumsPlayed: 0 })
+export const emptyTurnCounts = (): TurnCounts => ({ energyAttached: 0, supportersPlayed: 0, retreats: 0, stadiumsPlayed: 0, sameNameStadiums: 0 })
 
 export const emptyPlayer = (): PlayerState => ({
   deck: [],
