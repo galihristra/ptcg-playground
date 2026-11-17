@@ -371,15 +371,6 @@ describe('RESET', () => {
   })
 })
 
-describe('board actions before the board model exists', () => {
-  it('are no-ops (same reference)', () => {
-    const state = playing()
-    const uid = state.player.hand[0].uid
-    expect(reduce(state, { type: 'PLAY_TO_BENCH', uid })).toBe(state)
-    expect(reduce(state, { type: 'KNOCK_OUT', target: 'p1' })).toBe(state)
-  })
-})
-
 describe('selectors', () => {
   it('locate finds cards in stacks and attachments, and findInPlay accepts a slot id or any card uid', () => {
     const { state, uid } = withCardIn('bench')
