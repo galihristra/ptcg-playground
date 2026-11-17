@@ -3,6 +3,7 @@
 // Nothing here enforces the rules of the game (that is what warnings are for); it only keeps the
 // board consistent.
 
+import { normalizeName } from '../../legality'
 import { findInPlay, locate, topCard } from '../selectors'
 import type { Action, GameState, PokemonInPlay, SpecialCondition } from '../types'
 import { appendLog, placeCard, plural, takeCard, updateSlot, withPlayer } from './helpers'
@@ -32,7 +33,12 @@ export function evolve(state: GameState, action: Of<'EVOLVE'>): GameState {
   if (!target || !from || from.slotId === target.id) return state
   const taken = takeCard(state, action.uid)
   if (!taken) return state
-  const next = updateSlot(taken.state, target.id, (slot) => ({ ...clearConditions(slot), stack: [...slot.stack, taken.card], evolvedOnTurn: state.turn }))
+  const next = updateSlot(taken.state, target.id, (slot) => ({
+    ...clearConditions(slot),
+    stack: [...slot.stack, taken.card],
+    evolvedOnTurn: state.turn,
+    evolutionsOnTurn: slot.evolvedOnTurn === state.turn ? slot.evolutionsOnTurn + 1 : 1,
+  }))
   return appendLog(next, withNotes(`Evolved ${nameOf(target)} into ${taken.card.card.name}`, taken.notes))
 }
 
@@ -65,8 +71,13 @@ export function playTrainer(state: GameState, action: Of<'PLAY_TRAINER'>): GameS
   if (!taken) return state
   const counts = taken.state.turnCounts
   if (trainerType === 'Stadium') {
+    const old = state.player.stadium
+    const sameName = old !== null && normalizeName(old.card.name) === normalizeName(name)
     const placed = placeCard(taken.state, taken.card, 'stadium')
-    const next = { ...placed.state, turnCounts: { ...counts, stadiumsPlayed: counts.stadiumsPlayed + 1 } }
+    const next = {
+      ...placed.state,
+      turnCounts: { ...counts, stadiumsPlayed: counts.stadiumsPlayed + 1, sameNameStadiums: counts.sameNameStadiums + (sameName ? 1 : 0) },
+    }
     return appendLog(next, withNotes(`Played the Stadium ${name}`, placed.notes))
   }
   const discarded = placeCard(taken.state, taken.card, 'discard').state

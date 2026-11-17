@@ -87,7 +87,7 @@ describe('PLACE_OPENING', () => {
     const [a, b, c] = uids(before.player.hand)
     const after = reduce(before, { type: 'PLACE_OPENING', active: a, bench: [b, c] })
     expect(after.player.hand).toHaveLength(4)
-    expect(after.player.active).toMatchObject({ id: 'p1', damage: 0, condition: null, enteredPlayOnTurn: 0, evolvedOnTurn: null, attached: [] })
+    expect(after.player.active).toMatchObject({ id: 'p1', damage: 0, condition: null, enteredPlayOnTurn: 0, evolvedOnTurn: null, evolutionsOnTurn: 0, attached: [] })
     expect(uids(after.player.active!.stack)).toEqual([a])
     expect(after.player.bench.map((s) => s.id)).toEqual(['p2', 'p3'])
     expect(after.player.bench.map((s) => topCard(s).uid)).toEqual([b, c])
@@ -339,10 +339,10 @@ describe('FLIP_COIN', () => {
 describe('END_TURN', () => {
   it('advances the turn, resets turnCounts and leaves everything else alone', () => {
     const base = playing()
-    const before: GameState = { ...base, turnCounts: { energyAttached: 1, supportersPlayed: 2, retreats: 1, stadiumsPlayed: 1 } }
+    const before: GameState = { ...base, turnCounts: { energyAttached: 1, supportersPlayed: 2, retreats: 1, stadiumsPlayed: 1, sameNameStadiums: 1 } }
     const after = reduce(before, { type: 'END_TURN' })
     expect(after.turn).toBe(2)
-    expect(after.turnCounts).toEqual({ energyAttached: 0, supportersPlayed: 0, retreats: 0, stadiumsPlayed: 0 })
+    expect(after.turnCounts).toEqual({ energyAttached: 0, supportersPlayed: 0, retreats: 0, stadiumsPlayed: 0, sameNameStadiums: 0 })
     expect(lastLog(after)).toBe('Turn 2.')
     expect({ ...after, turn: before.turn, turnCounts: before.turnCounts, log: before.log }).toEqual(before)
     expect(after.player).toBe(before.player)

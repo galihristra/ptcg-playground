@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { engineDeck } from '../testUtils'
 import { assertConservation } from './invariants'
 import { reduce } from './reducer'
+import { handGame } from './testGame'
 import { findInPlay, locate, topCard } from './selectors'
-import { createGame } from './setup'
 import type { Action, GameState } from './types'
 
 // One deck for the whole file: engineDeck() mints new card ids on every call.
@@ -13,27 +13,7 @@ const run = (state: GameState, ...actions: Action[]) => actions.reduce(reduce, s
 const uids = (cards: { uid: string }[]) => cards.map((c) => c.uid)
 const lastLog = (state: GameState) => state.log[state.log.length - 1].text
 
-/**
- * A playing game on turn 2 whose hand holds exactly the named cards (in order), pulled from the
- * hand or deck, so tests can refer to cards by name. `hand('Seedling', 'Sprout')` returns their uids.
- */
-function game(...names: string[]): { state: GameState; hand: string[] } {
-  const base = run(createGame(DECK, 7), { type: 'START_GAME', goingFirst: true }, { type: 'END_TURN' })
-  const pool = [...base.player.hand, ...base.player.deck]
-  const picked: string[] = []
-  for (const name of names) {
-    const card = pool.find((c) => c.card.name === name && !picked.includes(c.uid))
-    if (!card) throw new Error(`No free copy of ${name} outside the Prize cards`)
-    picked.push(card.uid)
-  }
-  let state = base
-  for (const c of base.player.hand) if (!picked.includes(c.uid)) state = reduce(state, { type: 'MOVE', uid: c.uid, to: 'deck', position: 'bottom' })
-  for (const uid of picked) state = reduce(state, { type: 'MOVE', uid, to: 'hand' })
-  // Re-order the hand to match `names`.
-  state = { ...state, player: { ...state.player, hand: picked.map((uid) => state.player.hand.find((c) => c.uid === uid)!) } }
-  assertConservation(state)
-  return { state, hand: picked }
-}
+const game = (...names: string[]) => handGame(DECK, ...names)
 
 const ENERGY = 'Grass Energy'
 
@@ -74,7 +54,7 @@ describe('EVOLVE', () => {
     const active = after.player.active!
     expect(uids(active.stack)).toEqual([basic, stage1])
     expect(uids(active.attached)).toEqual([energy, tool])
-    expect(active).toMatchObject({ id: 'p1', damage: 30, condition: null, poisoned: false, burned: false, enteredPlayOnTurn: 2, evolvedOnTurn: 3 })
+    expect(active).toMatchObject({ id: 'p1', damage: 30, condition: null, poisoned: false, burned: false, enteredPlayOnTurn: 2, evolvedOnTurn: 3, evolutionsOnTurn: 1 })
     expect(lastLog(after)).toBe('Evolved Seedling into Sprout.')
     assertConservation(after)
   })
@@ -164,7 +144,7 @@ describe('PLAY_TRAINER', () => {
     const second = reduce(first, { type: 'PLAY_TRAINER', uid: hand[1] })
     expect(second.player.stadium?.uid).toBe(hand[1])
     expect(uids(second.player.discard)).toEqual([hand[0]])
-    expect(second.turnCounts.stadiumsPlayed).toBe(2)
+    expect(second.turnCounts).toMatchObject({ stadiumsPlayed: 2, sameNameStadiums: 1 })
     expect(lastLog(second)).toBe('Played the Stadium Arena (Arena was discarded).')
     assertConservation(second)
   })

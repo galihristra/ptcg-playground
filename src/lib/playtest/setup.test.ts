@@ -49,7 +49,7 @@ describe('createGame', () => {
     expect(game.player.hand).toHaveLength(7)
     expect(game.player.deck).toHaveLength(53)
     expect(game).toMatchObject({ phase: 'setup', turn: 0, goingFirst: null, mulligans: 0, prizesTaken: 0, nextSlot: 1 })
-    expect(game.turnCounts).toEqual({ energyAttached: 0, supportersPlayed: 0, retreats: 0, stadiumsPlayed: 0 })
+    expect(game.turnCounts).toEqual({ energyAttached: 0, supportersPlayed: 0, retreats: 0, stadiumsPlayed: 0, sameNameStadiums: 0 })
     expect(game.player).toMatchObject({ prizes: [], discard: [], lostZone: [], stadium: null, active: null, bench: [] })
     expect(game.log).toEqual([{ n: 1, text: 'Shuffled the deck (60 cards) and drew 7.' }])
   })
