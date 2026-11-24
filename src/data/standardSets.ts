@@ -114,19 +114,19 @@ export const STANDARD_SETS: StandardSet[] = [
   { id: "me04", name: "Chaos Rising", abbr: "CRI", mark: "J", verified: true },
   { id: "me05", name: "Pitch Black", abbr: "PBL", mark: "J", verified: true },
   {
+    id: "30th",
+    name: "30th Celebration",
+    abbr: "30C",
+    mark: "J",
+    verified: true,
+  },
+  {
     id: "me06",
     name: "Delta Reign",
     abbr: "DLR",
     mark: "J",
     verified: false,
     note: "New set: TCGdex has no regulation marks yet and reports legal.standard=false. Check pokemon.com.",
-  },
-  {
-    id: "30th",
-    name: "30th Celebration",
-    abbr: "30C",
-    mark: "J",
-    verified: true,
   },
 ];
 
